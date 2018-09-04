@@ -5,25 +5,92 @@ const weChatApi =require('wechat-api');
 const http = require('http');
 const util = require('util');
 const schedule = require('node-schedule');
+const config = require('./config.json');
 
 var  MenuGetFlag = 0;  // 统计菜单获取标识位 1: 已经获取  2: 尚未获取
 
-var config = { // 微信公众号配置信息
-    token: 'wechat',
-    appid: 'wx68b18f787f9878cd',
-    appsecret: '056b3b767a368f84fac584456111ad7f',
-    encodingAESKey: ''
-};
+// var config = { // 微信公众号配置信息
+//     token: 'wechat',
+//     appid: 'wx68b18f787f9878cd',
+//     appsecret: '056b3b767a368f84fac584456111ad7f',
+//     encodingAESKey: ''
+// };
 
 // 煮饭阿姨的openid
-var cookerId = 'oZ1891Z9gSJfAjfu9Eu7kJdYEwA8';
+// var cookerId = 'oZ1891Z9gSJfAjfu9Eu7kJdYEwA8';
 
 // 现有员工的集合
-var StaffNow = ["oZ1891bzhM_M8biCTUJatGwUj7sA","oZ1891R5kyrqBNtEDn00bYg3e77Y",
-            "oZ1891at7yq9I4Z5vYP0XEdX1PzQ"
-];
+// var StaffNow = ["oZ1891bzhM_M8biCTUJatGwUj7sA","oZ1891R5kyrqBNtEDn00bYg3e77Y",
+//             "oZ1891at7yq9I4Z5vYP0XEdX1PzQ"
+// ];
 
-var api = new weChatApi(config.appid, config.appsecret);
+
+var UserHandle = function () {
+    // 最新关注者openid集合
+    this.UserOpenid = new Array();
+
+    this.cookerId = 'oZ1891Z9gSJfAjfu9Eu7kJdYEwA8';
+
+    this.StaffNow = [];
+
+    /**
+     * 获取关注用户并更新
+     *
+     */
+    this.updateUserList = function () {
+        var that = this;
+        return new Promise(function (resolve, reject) {
+               // 这个回调是异步的 需要promiss来写，回调成功后才执行下面的。!!!
+                api.getFollowers(function (err, result) {
+                // 如果有新增成员添加到数组中
+                if (result.data.openid.length >= that.UserOpenid.length) {
+                    result.data.openid.forEach(idUnion => {
+                        if (that.UserOpenid.indexOf(idUnion) == -1) {
+                            that.UserOpenid.push(idUnion);
+                        }
+                    });
+                }
+                resolve(that.UserOpenid);
+                reject(err);
+            });
+        });
+    };
+
+    /**
+     * 用于自动添加用户进分组
+     * @param {Array} userId promise传递的获取的最新关注人员列表
+     */
+    this.addPerson2Group = function (userId) {
+                var that = this;
+                console.log('promiss回调结果:', userId);
+                if (that.StaffNow.length < userId.length) {
+                console.log("有新增成员");
+                // 遍历比较，找出新增加成员
+                userId.forEach(element => {
+                    if (that.StaffNow.indexOf(element) == -1) {
+                        console.log('新增了' + element);
+                        // 将新增成员添加进吃货分组
+                        api.moveUserToGroup(element, 100, function (err, result) {
+                            console.log('移动成功:', result);
+                        });
+                        that.StaffNow.push(element);
+                    }
+                });
+            } else if (that.StaffNow.length > userId.length) {
+                // 如果成员相较之前减少
+                that.StaffNow = '';
+                that.StaffNow = [].concat(userId);
+                console.log('减少之后的吃货数:', that.StaffNow);
+            } else {
+                console.log('没成员变化，不进行操作');
+                return;
+            }
+    };
+};
+
+var UserEvent = new UserHandle();   // 实例化用户处理对象
+
+var api = new weChatApi(config.appID, config.appSecret);
 
 router.use(express.query());   
 
@@ -145,7 +212,7 @@ function getUserOpenid() {
         for (let i = 0; i < result.data.openid.length; i++) {
 
             UserOpenid.push(result.data.openid[i]);
-            UserNumbers++;
+            // UserNumbers++;
         }
         // console.log(UserOpenid, UserNumbers);
         addPerson2Group(UserOpenid);
@@ -154,11 +221,10 @@ function getUserOpenid() {
 
 /** 
  * 每天饭点遍历关注人数，将新关注人员添加在分组中（排除煮饭阿姨）
- * @param {function} 
+ * @param {String} openidUnifo 关注人员列表
  */
 function addPerson2Group(openidUnifo) {
     var openIdNow = openidUnifo;
-    var newAddPeople = [];
     if (StaffNow.length < openIdNow.length) {
         console.log("有新增成员");
         // 遍历比较，找出新增加成员
@@ -212,7 +278,12 @@ var send2CookerOnTIme = function () { // 固定时间发送统计之后的信息
     rule.minute = 30;
 
     schedule.scheduleJob(rule, function () {
-        getUserOpenid();    // 更新吃货分组用户
+        // 用户关注更新
+        UserEvent.updateUserList().then(function (data) {
+            console.log('更新列表成功!');
+            UserEvent.addPerson2Group(data);
+        });
+
         console.log("每天5:30执行");
         obj();
         MenuGetFlag = 0; // 每天固定清除标识位
