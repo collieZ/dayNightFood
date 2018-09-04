@@ -28,9 +28,9 @@ var  MenuGetFlag = 0;  // 统计菜单获取标识位 1: 已经获取  2: 尚未
 var UserHandle = function () {
     // 最新关注者openid集合
     this.UserOpenid = new Array();
-
+    // 煮饭阿姨的openid
     this.cookerId = 'oZ1891Z9gSJfAjfu9Eu7kJdYEwA8';
-
+    // 目前员工数
     this.StaffNow = [];
 
     /**
@@ -43,10 +43,22 @@ var UserHandle = function () {
                // 这个回调是异步的 需要promiss来写，回调成功后才执行下面的。!!!
                 api.getFollowers(function (err, result) {
                 // 如果有新增成员添加到数组中
+                console.log(result);
                 if (result.data.openid.length >= that.UserOpenid.length) {
-                    result.data.openid.forEach(idUnion => {
-                        if (that.UserOpenid.indexOf(idUnion) == -1) {
-                            that.UserOpenid.push(idUnion);
+                    result.data.openid.forEach(userElement => {
+                        if (that.UserOpenid.indexOf(userElement) == -1) {
+                            that.UserOpenid.push(userElement);
+                        }
+                    });
+                } 
+                // 获取减少的成员openid
+                else if (result.data.openid.length < that.UserOpenid.length) {
+                    that.UserOpenid.forEach(userElement => {
+                        if (result.data.openid.indexOf(userElement) == -1) {
+                            let index = that.UserOpenid.indexOf(userElement);
+                            if (index > -1) {
+                                that.UserOpenid.splice(index,1);
+                            }
                         }
                     });
                 }
@@ -80,7 +92,10 @@ var UserHandle = function () {
                 // 如果成员相较之前减少
                 that.StaffNow = '';
                 that.StaffNow = [].concat(userId);
-                console.log('减少之后的吃货数:', that.StaffNow);
+                console.log('减少后剩余的吃货数:', that.StaffNow, '\r\n');
+                api.getGroups(function (err, result) { // 查询分组信息
+                    console.log(result);
+                });
             } else {
                 console.log('没成员变化，不进行操作');
                 return;
@@ -140,6 +155,13 @@ router.use('/', wechat(config, function (req, res, next) {
         res.reply("嘻嘻");
     }
 })); 
+
+// setInterval(function () {
+//     UserEvent.updateUserList().then(function (data) {
+//         console.log('更新列表成功!');
+//         UserEvent.addPerson2Group(data);
+//     });
+// }, 10000);
 
 function updateMenu() {     // 统计更新每日菜单
     
