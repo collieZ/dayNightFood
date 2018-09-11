@@ -16,7 +16,6 @@ var UserHandle = function () {
 
     /**
      * 获取关注用户并更新
-     *
      */
     this.updateUserList = function () {
         var that = this;
@@ -48,6 +47,8 @@ var UserHandle = function () {
             });
         });
     };
+
+
 
     /**
      * 用于自动添加用户进分组
@@ -94,6 +95,8 @@ var MenuHandle = function () {
     // 煮饭阿姨的openid
     this.cookerId = 'oZ1891Z9gSJfAjfu9Eu7kJdYEwA8';
 
+
+
      /**
       *  根据煮饭阿姨输入创建今日菜单
       *  @param {String}  msg   阿姨输入菜单信息
@@ -101,7 +104,7 @@ var MenuHandle = function () {
      this.CreatTodayMenu = function (msg, res) {
          var foodStr = new Array();
          var welStr = "今天的菜单\n";
-         var subStr = "请在规定时间内回复对应数字预定相应的菜品，请不要多次发送!!\n"
+         var subStr = "请在规定时间内回复是否要吃晚饭，请不要多次发送!!\n"
          var sendUserStr = '';
          if (msg.split("=")[0] == "今日菜单") {
             
@@ -135,6 +138,9 @@ var MenuHandle = function () {
          }
     };
 
+
+
+
     /**
      * 获取各个用户的订餐情况
      *  @param {String} content 选择的菜品编号
@@ -150,6 +156,9 @@ var MenuHandle = function () {
             res.reply("请输入正确的订餐编号!");
         }
     };
+
+
+
 
     /**
      * 将统计好的菜单信息发送给厨师
@@ -171,6 +180,9 @@ var MenuHandle = function () {
         }
     };
 
+
+
+    
     /** 
      *  设定未查询主动推送时间和事件
      *  @param  
