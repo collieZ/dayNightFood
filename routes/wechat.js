@@ -48,8 +48,6 @@ var UserHandle = function () {
         });
     };
 
-
-
     /**
      * 用于自动添加用户进分组
      * @param {Array} userId promise传递的获取的最新关注人员列表
@@ -63,12 +61,15 @@ var UserHandle = function () {
                 // 遍历比较，找出新增加成员
                 userId.forEach(element => {
                     if (StaffUnion.indexOf(element) == -1) {
-                        console.log('新增了' + element);
-                        // 将新增成员添加进吃货分组
-                        api.moveUserToGroup(element, 100, function (err, result) {
-                            console.log('移动成功:', result);
-                        });
-                        StaffUnion.push(element);
+                        // 不将cooker添加进发送分组
+                        if (element != MenuEvent.cookerId) {
+                            console.log('新增了' + element);
+                            // 将新增成员添加进吃货分组
+                            api.moveUserToGroup(element, 100, function (err, result) {
+                                console.log('移动成功:', result);
+                            });
+                            StaffUnion.push(element);
+                        }
                     }
                 });
             } else if (StaffUnion.length > userId.length) {
@@ -86,6 +87,7 @@ var UserHandle = function () {
     };
 };
 
+
 var MenuHandle = function () {
     
     this.dailyFoodMenu = new Array();  
@@ -95,39 +97,53 @@ var MenuHandle = function () {
     // 煮饭阿姨的openid
     this.cookerId = 'oZ1891Z9gSJfAjfu9Eu7kJdYEwA8';
 
+    this.send2CookerFlag = 0;   // 缺省为0   表示阿姨没主动提示
+
+    this.selectSatus = {
+        "eat": 0,
+        "noteat": 0,
+        "defaulteat": 0,
+        "defaultnoeat": 0
+    };   // 人员选择情况
 
 
      /**
-      *  根据煮饭阿姨输入创建今日菜单
+      *  煮饭阿姨推送，员工们收到回复
       *  @param {String}  msg   阿姨输入菜单信息
       */
      this.CreatTodayMenu = function (msg, res) {
          var foodStr = new Array();
-         var welStr = "今天的菜单\n";
-         var subStr = "请在规定时间内回复是否要吃晚饭，请不要多次发送!!\n"
+         var welStr = "晚饭时间到啦～\n";
+         var subStr = "1:要吃 2:不吃 3:缺省要吃 4:缺省不吃\r\n  请在规定时间内回复是否要吃晚饭，请不要多次发送!!\n"
          var sendUserStr = '';
-         if (msg.split("=")[0] == "今日菜单") {
+         if (msg == "晚餐") {
             
-             this.dailyFoodMenu = [];
-             this.foods = [];   // 清空数组
-             var menu = (msg.split('=')[1]).split(" ");
-             this.dailyFoodMenu = [].concat(menu);
-             for(let i = 0; i < this.dailyFoodMenu.length; i++) {
+            //  this.dailyFoodMenu = [];
+            //  this.foods = [];   // 清空数组
+            //  var menu = (msg.split('=')[1]).split(" ");
+            //  this.dailyFoodMenu = [].concat(menu);
+            //  for(let i = 0; i < this.dailyFoodMenu.length; i++) {
     
-                let foodObj = {name: "", numbers: 0};   // 块级作用域变量
-                foodObj.name = this.dailyFoodMenu[i];
-                this.foods.push(foodObj);
-            }
+            //     let foodObj = {name: "", numbers: 0};   // 块级作用域变量
+            //     foodObj.name = this.dailyFoodMenu[i];
+            //     this.foods.push(foodObj);
+            // }
     
-            for (let i = 0; i < this.foods.length; i++) {
-                let tempStr = (i + 1).toString() + '. ' + this.foods[i].name + '\n';
-                foodStr.push(tempStr);
-            }
-            sendUserStr = welStr + foodStr.join('') + '\r\n' + subStr;
+            // for (let i = 0; i < this.foods.length; i++) {
+            //     let tempStr = (i + 1).toString() + '. ' + this.foods[i].name + '\n';
+            //     foodStr.push(tempStr);
+            // }
+            send2CookerFlag = 1;  // 阿姨主动提示了
+            UserEvent.updateUserList().then(function (data) {
+                console.log('更新列表成功!');
+                UserEvent.addPerson2Group(data);
+            });
+
+            sendUserStr = welStr + '\r\n' + subStr;
             sendUserStr = sendUserStr.toString();
-            res.reply("今日菜单已更新并发送……");
+            res.reply("统计信息已发送");
             try {
-                api.massSendText(sendUserStr, "100", function (err, result) { // 群发菜单给员工
+                api.massSendText(sendUserStr, "100", function (err, result) { // 群发提示消息给员工
        
                     console.log('err is:', err);
                     console.log('result is', result);
@@ -138,61 +154,108 @@ var MenuHandle = function () {
          }
     };
 
-
-
-
     /**
      * 获取各个用户的订餐情况
      *  @param {String} content 选择的菜品编号
      */ 
     this.addUp = function (content, res) {
-        var selectFood = 0;
-        selectFood = parseInt(content);
-        if (selectFood > 0 && selectFood <= this.foods.length) { // 员工回复操作
-            this.foods[selectFood - 1].numbers++;
-            console.log(this.foods);
-            res.reply("你已订餐完成");
-        } else if (selectFood > this.foods.length) {
-            res.reply("请输入正确的订餐编号!");
+        var selected = 0;
+        selected = parseInt(content);
+        if (selected > 0 && selected < 6) { // 员工回复操作
+            // this.foods[selected - 1].numbers++;
+            // console.log(this.foods);
+            switch (selected) {
+                case 1:
+                    this.selectSatus.eat += 1;
+                    res.reply("你已确认今天要吃晚饭");
+                    console.log(this.selectSatus);
+                    break;
+                case 2:
+                    this.selectSatus.noteat += 1;
+                    res.reply("你已确认今天不吃晚饭");
+                    console.log(this.selectSatus);
+                    break;
+                case 3:
+                    this.selectSatus.defaulteat += 1;
+                    res.reply("默认后面都留下吃晚饭");
+                    console.log(this.selectSatus);
+                    break;
+                case 4:
+                    this.selectSatus.defaultnoeat += 1;
+                    res.reply("默认后面不留下吃晚饭");
+                    console.log(this.selectSatus);
+                    break;
+            
+                default:
+                    res.reply("请回复正确的编号");
+                    console.log(this.selectSatus);
+                    break;
+            }
         }
     };
-
-
-
 
     /**
      * 将统计好的菜单信息发送给厨师
      * @param {String} req
      */ 
     this.send2Cooker = function (req, res) {
-        var headStr = "统计菜品数量如下\n";
-        var foodStr = new Array();
+        var headStr = "要吃晚饭的人数有\n";
+        // var foodStr = new Array();
+        var numberCount = 0;
         var sendCookerStr = '';
         if (req == "统计") {
             // console.log('统计:', this.foods);
-            for (let i = 0; i < this.foods.length; i++) {
-                let tempStr = (i + 1).toString() + '. ' + this.foods[i].name + '数量 :' + this.foods[i].numbers + '\n';
-                foodStr.push(tempStr);
-            }
-            sendCookerStr = headStr + foodStr.join('');
-            MenuGetFlag = 1; // 标记今天已经获取过菜单
+            // for (let i = 0; i < this.foods.length; i++) {
+            //     let tempStr = (i + 1).toString() + '. ' + this.foods[i].name + '数量 :' + this.foods[i].numbers + '\n';
+            //     foodStr.push(tempStr);
+            // }
+            numberCount = this.selectSatus.eat + this.selectSatus.defaulteat; // 统计要吃的人数   默认+要去的
+            sendCookerStr = headStr + numberCount.toString() + "人";
+            MenuGetFlag = 1; // 标记今天已经获取统计信息
             res.reply(sendCookerStr);
         }
     };
 
 
-
-    
     /** 
      *  设定未查询主动推送时间和事件
      *  @param  
      */
     this.sendOnTime = function () {
         var that = this;
+        // 定时主动提示   17:20 提示
+        var rulepr = new schedule.RecurrenceRule();
+        rulepr.dayOfWeek = [0, new schedule.Range(1, 6)];
+        rulepr.hour = 15;
+        rulepr.minute = 05;
+        // 主动发送给阿姨  17:40
         var rule = new schedule.RecurrenceRule();
         rule.dayOfWeek = [0, new schedule.Range(1, 6)];
-        rule.hour = 17;
-        rule.minute = 20;
+        rule.hour = 15;
+        rule.minute = 07;
+
+
+        schedule.scheduleJob(rulepr, function () {  
+            
+            if (send2CookerFlag == 0) {
+                var welStr = "晚饭时间到啦～\n";
+                var subStr = "1:要吃 2:不吃 3:缺省要吃 4:缺省不吃\r\n  请在规定时间内回复是否要吃晚饭，请不要多次发送!!\n"
+                var sendUserStr = '';
+                sendUserStr = welStr + '\r\n' + subStr;
+                sendUserStr = sendUserStr.toString();
+                try {
+                    api.massSendText(sendUserStr, "100", function (err, result) { // 群发提示消息给员工
+    
+                        console.log('err is:', err);
+                        console.log('result is', result);
+                    });
+                } catch (err) {
+                    console.log(err);
+                }
+            }
+            console1.log("======已经主动提示了过了======\r\n");
+            send2CookerFlag = 0;    // 初始化提示标志
+        });
 
         schedule.scheduleJob(rule, function () {
         // 用户关注更新
@@ -200,17 +263,20 @@ var MenuHandle = function () {
                 console.log('更新列表成功!');
                 UserEvent.addPerson2Group(data);
             });
+
             console.log("每天5:20执行");
             if (MenuGetFlag == 0) {
     
-                var headStr = "统计菜品数量如下\n";
-                var foodStr = new Array();
+                var headStr = "统计就餐人数有:\n";
+                // var foodStr = new Array();
                 var sendCookerStr = '';
-                for (let i = 0; i < that.foods.length; i++) {
-                    let tempStr = (i + 1).toString() + '. ' + that.foods[i].name + '数量 :' + that.foods[i].numbers + '\n';
-                    foodStr.push(tempStr);
-                }
-                sendCookerStr = headStr + foodStr.join('');
+                // for (let i = 0; i < that.foods.length; i++) {
+                //     let tempStr = (i + 1).toString() + '. ' + that.foods[i].name + '数量 :' + that.foods[i].numbers + '\n';
+                //     foodStr.push(tempStr);
+                // }
+                // var peopleChange = 
+                var numberCount = that.selectSatus.eat + that.selectSatus.defaulteat; // 统计要吃的人数   默认+要去的
+                sendCookerStr = headStr + numberCount + "";
                 api.sendText(that.cookerId, sendCookerStr, function (err, result) { // 发送客服消息
                     console.log(result);
                 });
@@ -218,6 +284,8 @@ var MenuHandle = function () {
             MenuGetFlag = 0; // 每天固定清除标识位
         });
     };
+
+
 };
 
 
@@ -232,7 +300,8 @@ MenuEvent.sendOnTime();
 router.use(express.query());   
 
 router.use('/', wechat(config, function (req, res, next) {
-    console.log(req.weixin);
+    // console.log(typeof req.weixin);
+    console.log(req.weixin.FromUserName);
     var message = req.weixin;
 
     if(!message.Content) {  // 防止进入回调后内容为null
