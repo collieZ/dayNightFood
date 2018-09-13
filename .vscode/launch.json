@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [{
+        "name": "Run net模块tcp测试.js",
+        "type": "node",
+        "request": "launch",
+        "program": "${workspaceRoot}/net模块tcp测试.js",
+        "stopOnEntry": false,
+        "args": [],
+        "cwd": "${workspaceRoot}",
+        "preLaunchTask": null,
+        "runtimeExecutable": null,
+        "runtimeArgs": [
+            "--nolazy"
+        ],
+        "env": {
+            "NODE_ENV": "development"
+        },
+        "externalConsole": false,
+        "sourceMaps": false,
+        "outDir": null
+    }]
+}
