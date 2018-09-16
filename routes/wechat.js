@@ -32,18 +32,18 @@ var MenuHandle = function () {
     this.send2CookerFlag = 0;   // 缺省为0   表示阿姨没主动提示
 
     this.selectSatus = {
-        "eat": 0,
-        "noteat": 0,
-        "defaulteat": 0,
-        "defaultnoeat": 0
+        eat: 0,
+        noteat: 0,
+        defaulteat: 0,
+        defaultnoeat: 0
     };   // 人员选择情况
 
-    this.saveStatus = {
-        "eat": [],
-        "noeat": [],
-        "defaulteat": [],
-        "defaultnoeat": []
-    };  // 缺省情况存储
+    // this.saveStatus = {
+    //     "eat": [],
+    //     "noeat": [],
+    //     "defaulteat": [],
+    //     "defaultnoeat": []
+    // };  // 缺省情况存储
 
      /**
       *  煮饭阿姨推送，员工们收到回复
@@ -56,24 +56,25 @@ var MenuHandle = function () {
 
          if (msg.Content == "晚餐" && msg.FromUserName == this.cookerId) {
         
-            send2CookerFlag = 1;  // 阿姨主动提示了
+            this.send2CookerFlag = 1;  // 阿姨主动提示了
             UserEvent.updateUserList().then(function (data) {
                 console.log('更新列表成功!');
                 UserEvent.addPerson2Group(data);
             });
-
-            sendUserStr = welStr + '\r\n' + subStr;
-            sendUserStr = sendUserStr.toString();
-            res.reply("统计信息已发送");
-            try {
-                api.massSendText(sendUserStr, "100", function (err, result) { // 群发提示消息给员工
-       
-                    console.log('err is:', err);
-                    console.log('result is', result);
-                });
-            } catch (err) {
-                console.log(err);
-            }
+            setTimeout(() => {
+                sendUserStr = welStr + '\r\n' + subStr;
+                sendUserStr = sendUserStr.toString();
+                res.reply("统计信息已发送");
+                try {
+                    api.massSendText(sendUserStr, "100", function (err, result) { // 群发提示消息给员工
+           
+                        console.log('err is:', err);
+                        console.log('result is', result);
+                    });
+                } catch (err) {
+                    console.log(err);
+                }
+            }, 2000);
          }
          else if (msg.Content == "晚餐" && msg.FromUserName != this.cookerId) {
              res.reply("你不是煮饭阿姨的嘛");
@@ -90,9 +91,8 @@ var MenuHandle = function () {
 
         selected = parseInt(msgobj.Content);    // 选择的编号
         if (selected > 0 && selected < 6) { // 员工回复操作
-            // this.foods[selected - 1].numbers++;
-            // console.log(this.foods);
-            if (nowTime > limitTS) {
+            console.log("统计结束时间:", limitTS, "目前时间:", nowTime);
+            if (nowTime > limitTS && limitTS != null) {
                 res.reply("今天的统计时间已经过了，下次早点哦～");
                 return;
             }
@@ -100,7 +100,6 @@ var MenuHandle = function () {
                 case 1:
                     if (cmpLocalJson(0, msgobj.FromUserName) == 0) {
                         this.selectSatus.eat += 1;
-                        // this.saveStatus.eat.push(msgobj.FromUserName);
                         res.reply("你已确认今天要吃晚饭");
                         console.log(this.selectSatus);
                     } else {
@@ -115,8 +114,6 @@ var MenuHandle = function () {
                     break;
                 case 3:
                     this.selectSatus.defaulteat += 1;
-                    this.saveStatus.defaulteat.push(msgobj.FromUserName);   // 加了本地就可以不要了
-                    console.log(this.saveStatus.defaulteat);
                     // 本地更新记录 默认去
                     changeLocalJson(msgobj.FromUserName);
                     res.reply("默认后面都留下吃晚饭");
@@ -137,12 +134,11 @@ var MenuHandle = function () {
     this.send2Cooker = function (req, res) {
         var that = this;
         var headStr = "要吃晚饭的人数大约有\n";
-        // var foodStr = new Array();
         var numberCount = 0;
         var sendCookerStr = '';
+
         if (req.Content == "统计" && req.FromUserName == this.cookerId) {
-            console.log(this.selectSatus.eat, typeof this.selectSatus.eat);
-            console.log('本地:', localData.defaultNoEatPeople.total);
+            console.log('本地:', localData.total);
             numberCount = this.selectSatus.eat + localData.total; // 统计要吃的人数   默认+要去的
             console.log(numberCount);
             sendCookerStr = headStr + numberCount.toString() + "人";
@@ -168,49 +164,49 @@ var MenuHandle = function () {
         // 定时主动提示   17:00 提示
         var rulepr = new schedule.RecurrenceRule();
         rulepr.dayOfWeek = [0, new schedule.Range(1, 6)];
-        rulepr.hour = 17;
-        rulepr.minute = 0;
+        rulepr.hour = 23;
+        rulepr.minute = 33;
         // 主动统计好发送给阿姨  17:40
         var rule = new schedule.RecurrenceRule();
         rule.dayOfWeek = [0, new schedule.Range(1, 6)];
-        rule.hour = 17;
-        rule.minute = 40;
-
+        rule.hour = 0;
+        rule.minute = 28;
 
         schedule.scheduleJob(rulepr, function () {  
-            if (send2CookerFlag == 0) {
-                var welStr = "晚饭时间到啦～\n";
-                var subStr = "1:要吃 2:不吃 3:默认要吃\r\n  请在规定时间内回复是否要吃晚饭，请不要多次发送!!\n"
-                var sendUserStr = '';
-                sendUserStr = welStr + '\r\n' + subStr;
-                sendUserStr = sendUserStr.toString();
-                try {
-                    api.massSendText(sendUserStr, "100", function (err, result) { // 群发提示消息给员工
-    
-                        console.log('err is:', err);
-                        console.log('result is', result);
-                    });
-                } catch (err) {
-                    console.log(err);
+            // 用户关注更新
+            UserEvent.updateUserList().then(function (data) {
+                    console.log('更新列表成功!');
+                    UserEvent.addPerson2Group(data);
+                });
+            setTimeout(() => {
+                if (that.send2CookerFlag == 0) {
+                    var welStr = "晚饭时间到啦～\n";
+                    var subStr = "1:要吃 2:不吃 3:默认以后都要吃\r\n  请在规定时间内回复是否要吃晚饭，请不要多次发送!!\n"
+                    var sendUserStr = '';
+                    sendUserStr = welStr + '\r\n' + subStr;
+                    sendUserStr = sendUserStr.toString();
+                    try {
+                        // api.massSendText(sendUserStr, "100", function (err, result) { // 群发提示消息给员工
+        
+                        //     console.log('err is:', err);
+                        //     console.log('result is', result);
+                        // });
+                    } catch (err) {
+                        console.log(err);
+                    }
                 }
-            }
-            console.log("======已经主动提示了过了======\r\n");
-            send2CookerFlag = 0;    // 初始化提示标志
+                console.log("======已经主动提示了过了======\r\n");
+                that.send2CookerFlag = 0;    // 初始化提示标志
+            }, 2000);
         });
-
         schedule.scheduleJob(rule, function () {
-        // 用户关注更新
-        UserEvent.updateUserList().then(function (data) {
-                console.log('更新列表成功!');
-                UserEvent.addPerson2Group(data);
-            });
-
             console.log("每天5:20执行");
             if (MenuGetFlag == 0) {
     
                 var headStr = "统计就餐人数有:\n";
                 var sendCookerStr = '';
                 var numberCount = that.selectSatus.eat + localData.total; // 统计要吃的人数   默认+要去的
+                console.log("统计的总人数为",numberCount, "选择要去的为:", that.selectSatus.eat, "默认要去的有:", localData.total);
                 sendCookerStr = headStr + numberCount + "";
                 api.sendText(that.cookerId, sendCookerStr, function (err, result) { // 发送客服消息
                     console.log(result);
@@ -221,7 +217,7 @@ var MenuHandle = function () {
             Object.keys(that.selectSatus).forEach(function (key) {
                 that.selectSatus[key] = 0;
             });
-            limitTS = new Date().getTime;
+            limitTS = new Date().getTime();
         });
     };
 };
@@ -379,7 +375,8 @@ function changeLocalJson(UserId) {
  */ 
 function cmpLocalJson(mode, UserId) {
     
-    var localData = fs.readFileSync(localPath, 'utf-8');
+    let localData = fs.readFileSync(localPath, 'utf-8');
+
     if (mode == 0) {
         // 选择要去的比较检验
         console.log(localData);
